@@ -1,6 +1,7 @@
 const express = require('express');
 const { accountModel } = require('../db');
 const authMiddleware = require('../middleware');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -16,18 +17,19 @@ router.get('/balance',authMiddleware,async(req,res)=>{
 })
 
 //transfer money api
-router.post('/transfer',async(req,res)=>{
-    const session = await mongoose.startSession();
+router.post('/transfer',authMiddleware, async(req,res)=>{
+    try {
+        const session = await mongoose.startSession();
 
     //start transaction to avoid lose in transaction data
-    session.startSession();
+    await session.startTransaction();
     const {amount,to} = req.body;
 
     const account =  await accountModel.findOne({
         userId: req.userId
     }).session(session);
 
-    if(!account || account.balance < amount){
+    if(!account || accountModel.balance < amount){
         await session.abortTransaction();
         return res.status(400).json({
             message: "Insufficient funds"
@@ -73,6 +75,9 @@ router.post('/transfer',async(req,res)=>{
     res.json({
         message: "Transfer succesful"
     });
+    } catch (error) {
+       console.log(error);
+    }
 });
 
 
