@@ -112,4 +112,29 @@ router.put('/',authMiddleware,async(req,res)=>{
     })
 })
 
+//To filter and find the users
+
+router.get('/bulk', authMiddleware, async(req,res)=>{
+    const filter = req.query.filter || "";
+    const users = await userModel.find({
+        $or: [
+            {
+                firstName: {$regex : filter}
+            },
+            {
+                lastName: {$regex : filter}
+            }
+        ],
+    })
+
+    res.json({
+        user: users.map(u => ({
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            userId: u._id
+        }))  
+    })
+})
+
 module.exports = router;
