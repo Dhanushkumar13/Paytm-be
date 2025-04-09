@@ -3,6 +3,7 @@ const z = require('zod');
 const {userModel} = require('../db');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../config');
+const authMiddleware = require('../middleware');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const bodyParsed = z.object({
     lastName: z.string()
 });
 
-router.use('/signup', async (req,res)=>{
+router.post('/signup', async (req,res)=>{
     //if zod fails
     if(!bodyParsed.success){
         return res.status(411).json({
@@ -52,8 +53,63 @@ router.use('/signup', async (req,res)=>{
     })
 })
 
-router.use('/signin',(req,res)=>{
+const signinBody = z.object({
+    username: z.string().email(),
+    password: z.string(),
+})
 
+router.post('/signin',async(req,res)=>{
+    
+    if(!signinBody.success){
+        return res.status(411).json({
+            message: "Email already taken/incorrect input"
+        })
+    }
+
+    const user = await userModel.findOne({
+        username: req.body.username,
+        password: req.body.password
+    });
+
+    if(user){
+        const token = jwt.sign({
+            userId: user._id
+        },JWT_SECRET)
+
+    res.json({
+        token: token
+    })
+    return;
+    }
+
+    res.status(411).json({
+        message: "Error while logging in!"
+    })
+})
+
+//update
+const updateBody = z.object({
+    password: z.string(),
+    firstName: z.string(),
+    lastName: z.string(),
+})
+
+router.put('/',authMiddleware,async(req,res)=>{
+    if(!updateBody.success){
+        return res.status(411).json({
+            message: "Email already taken/incorrect input"
+        })
+    }
+
+    
+    const user = await userModel.updateOne({
+    //checks the userId present in the database
+        _id: req.userId
+    }, req.body);
+
+    res.json({
+        message: "Updated successfully"
+    })
 })
 
 module.exports = router;
