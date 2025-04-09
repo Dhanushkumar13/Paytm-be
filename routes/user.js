@@ -1,23 +1,24 @@
 const express = require('express');
 const z = require('zod');
-const {userModel} = require('../db');
+const {userModel, accountModel} = require('../db');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../config');
 const authMiddleware = require('../middleware');
 
-const router = express.Router();
+const userRouter = express.Router();
 
 //zod validation
-const bodyParsed = z.object({
+const signupBody = z.object({
     username: z.string().email(),
     password: z.string(),
     firstName: z.string(),
     lastName: z.string()
 });
 
-router.post('/signup', async (req,res)=>{
+userRouter.post('/signup', async (req,res)=>{
+    const parsedInput = signupBody.safeParse(req.body)
     //if zod fails
-    if(!bodyParsed.success){
+    if(!parsedInput.success){
         return res.status(411).json({
             message: "Email already taken/incorrect inputs"
         })
@@ -42,9 +43,17 @@ router.post('/signup', async (req,res)=>{
         lastName: req.body.lastName,
     })
 
+    const userId = user._id
+
+    //create new account
+    await accountModel.create({
+        userId,
+        balance: 1 + Math.random() * 10000
+    })
+
     //creating token for the users created
     const token = jwt.sign({
-        userId: user._id
+        userId: userId
     },JWT_SECRET);
 
     res.json({
@@ -58,9 +67,10 @@ const signinBody = z.object({
     password: z.string(),
 })
 
-router.post('/signin',async(req,res)=>{
-    
-    if(!signinBody.success){
+userRouter.post('/signin',async(req,res)=>{
+    const parsedInput = signinBody.safeParse(req.body)
+
+    if(!parsedInput.success){
         return res.status(411).json({
             message: "Email already taken/incorrect input"
         })
@@ -94,8 +104,11 @@ const updateBody = z.object({
     lastName: z.string(),
 })
 
-router.put('/',authMiddleware,async(req,res)=>{
-    if(!updateBody.success){
+userRouter.put('/',authMiddleware,async(req,res)=>{
+    const parsedInput = updateBody.safeParse(req.body)
+
+
+    if(!parsedInput.success){
         return res.status(411).json({
             message: "Email already taken/incorrect input"
         })
@@ -114,7 +127,7 @@ router.put('/',authMiddleware,async(req,res)=>{
 
 //To filter and find the users
 
-router.get('/bulk', authMiddleware, async(req,res)=>{
+userRouter.get('/bulk', authMiddleware, async(req,res)=>{
     const filter = req.query.filter || "";
     const users = await userModel.find({
         $or: [
@@ -137,4 +150,4 @@ router.get('/bulk', authMiddleware, async(req,res)=>{
     })
 })
 
-module.exports = router;
+module.exports = userRouter;
